@@ -14,6 +14,7 @@ const longGoodsList = document.querySelector('.long-goods-list');
 const navigationLink = document.querySelectorAll('.navigation-link');
 const cartTableGoods = document.querySelector('.cart-table__goods')
 const cartTableTotal = document.querySelector('.card-table__total')
+const cartCount = document.querySelector('.cart-count')
 
 const getGoods = async () => {
 	const result = await fetch('db/db.json');
@@ -25,6 +26,23 @@ const getGoods = async () => {
 
 const cart = {
 	cartGoods: [],
+	countCartGoods() {
+     return this.cartGoods.length;
+	},
+
+	countQuantity() {
+    const count = this.cartGoods.reduce((sum, item)=> {
+		return sum + item.count;
+	},0) 
+    cartCount.textContent = count ? count : '';
+	},
+	
+	clearCart() {
+	 this.cartGoods.length = 0;
+	 this.countQuantity();
+	 this.renderCart();
+	},
+
 	renderCart(){
 		cartTableGoods.textContent = '';
 		this.cartGoods.forEach(({id,name,price,count}) => {
@@ -67,10 +85,12 @@ const cart = {
 
 				})
 			}
+			this.countQuantity();
 		},
 	
 	deleteGoods(id){
 		this.cartGoods = this.cartGoods.filter(item => id !== item.id);
+		this.countQuantity();
 		this.renderCart();
 	},
 	plusGood(id){
@@ -81,6 +101,7 @@ const cart = {
 			}
 			
 		}
+		this.countQuantity();
 		this.renderCart();
 	},
 	minusGood(id){
@@ -95,6 +116,7 @@ const cart = {
 			}
 			
 		}
+		this.countQuantity();
 		this.renderCart();
 	},
 }
@@ -227,27 +249,50 @@ const postData = dataUser => fetch('server.php', {
 	body: dataUser,
 })
 
+const validForm = (formData) => {
+  let valid = false;
+  for(const[,value] of formData) {
+	  if(value.trim()) {
+		  valid = true;
+	  } else{
+		  valid = false
+		  break;
+	  }
+  }
+  return valid;
+}
+
 const modalForm = document.querySelector('.modal-form')
 
 modalForm.addEventListener('submit', event => {
 	event.preventDefault();
 
 	const formData = new FormData(modalForm);
-	formData.append('order',JSON.stringify(cart.cartGoods));
-	postData(formData)
-	.then(response => {
-		if(!response.ok) {
-			throw new Error(response.status)
+	if(validForm(formData)&& cart.countCartGoods()) {
+		formData.append('order',JSON.stringify(cart.cartGoods));
+		postData(formData)
+		.then(response => {
+			if(!response.ok) {
+				throw new Error(response.status)
+			}
+			alert('Ваш заказ успешно отправлен, с вами свяжутся в ближайшее время')
+		})
+		.catch(err => {
+			alert('К сожалению, произошла ошибка, повторите попытку позже');
+			console.error(err)
+		})
+		.finally(() => {
+			closemodal();
+			modalForm.reset();
+			cart.clearCart();	
+		})
+	} else {
+		if(!cart.countCartGoods()) {
+			alert('Добавьте товары в корзину')
+		} if(!validForm(formData)) {
+			alert('Неправильно заполнены поля')
 		}
-		alert('Ваш заказ успешно отправлен, с вами свяжутся в ближайшее время')
-	})
-	.catch(err => {
-		alert('К сожалению, произошла ошибка, повторите попытку позже');
-		console.error(err)
-	})
-	.finally(() => {
-		closemodal();
-		modalForm.reset();
-		cart.cartGoods.length = 0;	
-	})
+		
+	}
+	
 })
